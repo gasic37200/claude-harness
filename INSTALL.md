@@ -32,31 +32,28 @@
 
 ## 플러그인 설치
 
+마켓 주소 끝의 `#v0.1.0`이 버전 고정입니다(마켓이 그 태그로 고정됨, 2026-11-23 확인). 빼면 `main`을 따라갑니다.
+
+셸에서 (AI가 실행할 때는 이것):
+
+```
+claude plugin install harness --marketplace "gasic37200/claude-harness#v0.1.0"
+```
+
 터미널 Claude Code 프롬프트에서:
 
 ```
-/plugin install harness --marketplace gasic37200/claude-harness
+/plugin install harness --marketplace gasic37200/claude-harness#v0.1.0
 ```
 
-셸에서:
+데스크톱 앱(`/plugin` 이 안 되는 곳): 입력창 옆 + → Plugins → Add marketplace에 `gasic37200/claude-harness#v0.1.0` → Add plugin에서 `harness`.
 
-```
-claude plugin install harness --marketplace gasic37200/claude-harness
-```
-
-데스크톱 앱(`/plugin` 이 안 되는 곳): 입력창 옆 + → Plugins → Add marketplace에 `gasic37200/claude-harness` → Add plugin에서 `harness`.
-
-버전 고정: 마켓을 태그로 고정하려면 마켓 주소에 `#v0.1.0`을 붙입니다.
-
-```
-claude plugin marketplace add "https://github.com/gasic37200/claude-harness.git#v0.1.0"
-claude plugin install harness@claude-harness
-```
+이미 `claude-harness` 마켓이 다른 버전으로 등록돼 있으면 `claude plugin marketplace remove claude-harness` 후 위 명령을 다시 실행합니다.
 
 ## 업데이트
 
 1. 이 레포의 새 태그(예: `v0.2.0`)와 릴리스 노트를 확인합니다.
-2. `claude plugin marketplace update claude-harness` 후 `claude plugin update harness@claude-harness` (태그로 고정했다면 마켓을 새 태그 주소로 다시 추가).
+2. 마켓이 태그로 고정돼 있으므로 `claude plugin marketplace remove claude-harness` 후 새 태그로 「플러그인 설치」 명령을 다시 실행합니다.
 3. 대상 레포 CI의 `@v0.1.0`을 새 태그로 바꾸는 PR을 만듭니다.
 4. `/harness:doctor`로 확인합니다. 템플릿 파일은 자동으로 바뀌지 않습니다(덮어쓰기 금지). 바뀐 템플릿이 있으면 `/harness:setup`이 차이를 제안합니다.
 

@@ -15,7 +15,7 @@ AI가 [INSTALL.md](INSTALL.md)를 읽고 점검 → 플러그인 설치 → 템�
 직접 설치하려면:
 
 ```
-/plugin install harness --marketplace gasic37200/claude-harness
+/plugin install harness --marketplace gasic37200/claude-harness#v0.1.0
 ```
 
 그다음 프로젝트에서 `/harness:setup`, 확인은 `/harness:doctor`.
