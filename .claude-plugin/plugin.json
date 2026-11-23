@@ -1,0 +1,10 @@
+{
+  "name": "harness",
+  "version": "0.1.0",
+  "description": "사이드 프로젝트용 Claude Code 하네스: 짧은 AGENTS.md · 결정 기록 · PR 「AI 사용」 칸 · CI 결과 댓글을 setup 스킬로 설치하고 doctor로 점검",
+  "author": { "name": "gasic37200", "url": "https://github.com/gasic37200" },
+  "homepage": "https://github.com/gasic37200/claude-harness",
+  "repository": "https://github.com/gasic37200/claude-harness",
+  "license": "MIT",
+  "keywords": ["harness", "agents-md", "adr", "ci", "workflow"]
+}

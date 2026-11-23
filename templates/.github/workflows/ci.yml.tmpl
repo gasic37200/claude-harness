@@ -1,0 +1,21 @@
+# harness CI: 테스트를 돌리고 결과(통과 · 실패 · 시간)를 PR 댓글 하나로 남긴다.
+# 설정 설명: https://github.com/gasic37200/claude-harness/blob/v{하네스 버전}/.github/workflows/ci.yml
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write  # 결과 댓글용
+
+jobs:
+  test:
+    uses: gasic37200/claude-harness/.github/workflows/ci.yml@v{하네스 버전}
+    with:
+      test-command: "{테스트 명령}"
+      # java-version: "21"            # Gradle · Maven이면
+      # node-version: "22"            # Node면
+      # junit-glob: "**/build/test-results/**/*.xml"  # JUnit XML 위치 (기본은 Gradle · Maven · Jest-junit 경로)

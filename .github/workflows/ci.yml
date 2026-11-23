@@ -1,0 +1,160 @@
+# harness 재사용 CI: 테스트를 돌리고 JUnit XML 결과를 PR 댓글 하나로 남긴다 (같은 댓글을 갱신).
+#
+# 쓰는 쪽 (.github/workflows/ci.yml):
+#   permissions: { contents: read, pull-requests: write }
+#   jobs:
+#     test:
+#       uses: gasic37200/claude-harness/.github/workflows/ci.yml@v0.1.0
+#       with:
+#         test-command: "./gradlew test"
+#
+# - 브랜치 보호의 필수 체크 이름은 「<쓰는 쪽 job 이름> / test」 (위 예시면 `test / test`)
+# - 포크 PR은 토큰이 읽기 전용이라 댓글을 건너뛰고 실행 요약(Summary)에만 남긴다
+# - 테스트 메시지는 PR 코드가 만든 값이라 믿지 않는다: 코드 글꼴 안에 넣고 @멘션 · 표 깨짐을 막는다
+name: harness-ci
+
+on:
+  workflow_call:
+    inputs:
+      test-command:
+        description: 테스트 명령 (예 ./gradlew test, npm test)
+        type: string
+        required: true
+      java-version:
+        description: 비우면 Java를 설치하지 않음
+        type: string
+        default: ""
+      node-version:
+        description: 비우면 Node를 설치하지 않음
+        type: string
+        default: ""
+      junit-glob:
+        description: JUnit XML 결과 파일 위치 (glob, 공백으로 여러 개)
+        type: string
+        default: "**/build/test-results/**/*.xml **/target/surefire-reports/*.xml **/junit*.xml"
+      slowest:
+        description: 느린 테스트 몇 개를 보여 줄지 (0이면 안 보임)
+        type: number
+        default: 5
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: inputs.java-version != ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+
+      - if: inputs.java-version != '' && (hashFiles('**/gradlew') != '')
+        uses: gradle/actions/setup-gradle@v4
+
+      - if: inputs.node-version != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Test
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: bash -c "$TEST_COMMAND"
+
+      - name: Summarize results
+        if: always()
+        env:
+          JUNIT_GLOB: ${{ inputs.junit-glob }}
+          SLOWEST: ${{ inputs.slowest }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 - > "$RUNNER_TEMP/summary.md" <<'PY'
+          import glob, os, xml.etree.ElementTree as ET
+
+          MARKER = "<!-- harness-test-summary -->"
+          MAX_FAILURES, MAX_MESSAGE = 20, 150
+
+          def clean(text, limit):
+              line = " ".join((text or "").split()).replace("`", "'").replace("@", "@​").replace("|", "\\|")
+              return line[:limit] + ("…" if len(line) > limit else "")
+
+          def fmt(sec):
+              m, s = divmod(int(round(sec)), 60)
+              return f"{m}m {s}s" if m else f"{sec:.1f}s" if sec < 10 else f"{s}s"
+
+          paths = sorted({p for g in os.environ["JUNIT_GLOB"].split() for p in glob.glob(g, recursive=True)})
+          modules, failures, cases = {}, [], []
+          for path in paths:
+              p = path.replace("\\", "/")
+              module = p.split("/build/")[0] if "/build/" in p else p.split("/target/")[0] if "/target/" in p else os.path.dirname(p) or "."
+              stats = modules.setdefault(module, [0, 0, 0, 0.0])
+              try:
+                  root = ET.parse(path).getroot()
+              except ET.ParseError:
+                  continue
+              for case in root.iter("testcase"):
+                  t = float(case.get("time") or 0)
+                  stats[3] += t
+                  cls = (case.get("classname") or "").rsplit(".", 1)[-1]
+                  name = case.get("name") or ""
+                  cases.append((t, module, cls, name))
+                  bad = case.find("failure")
+                  if bad is None:
+                      bad = case.find("error")
+                  if bad is not None:
+                      stats[1] += 1
+                      msg = bad.get("message") or ""
+                      if len(msg.strip().rstrip(":")) < 30:
+                          msg = bad.text or msg
+                      failures.append((module, cls, name, msg))
+                  elif case.find("skipped") is not None:
+                      stats[2] += 1
+                  else:
+                      stats[0] += 1
+
+          sha = os.environ.get("SHA", "")[:7]
+          out = [MARKER]
+          if not modules:
+              out += [f"🧪 테스트 결과 · 커밋 `{sha}` · ⚠️ 결과 파일 없음", "",
+                      "테스트 결과(JUnit XML)를 못 찾았습니다. 컴파일 실패이거나 `junit-glob` 위치가 다를 수 있습니다. Actions 로그의 Test 단계를 확인하세요."]
+          else:
+              failed = sum(s[1] for s in modules.values())
+              total = sum(s[0] + s[1] + s[2] for s in modules.values())
+              status = f"❌ {failed}개 실패" if failed else "✅ 모두 통과"
+              out += [f"🧪 테스트 결과 · 커밋 `{sha}` · {status} (전체 {total}개)", "",
+                      "| 모듈 | 통과 | 실패 | 건너뜀 | 시간 |", "|---|---:|---:|---:|---:|"]
+              for module, (ok, bad, skip, sec) in sorted(modules.items()):
+                  out.append(f"| {'❌ ' if bad else ''}`{clean(module, 80)}` | {ok} | {bad} | {skip} | {fmt(sec)} |")
+              if failures:
+                  out += ["", "**실패한 테스트**"]
+                  for module, cls, name, msg in failures[:MAX_FAILURES]:
+                      out.append(f"- `{clean(module, 60)}` {clean(cls, 80)} > {clean(name, 100)} — `{clean(msg, MAX_MESSAGE)}`")
+                  if len(failures) > MAX_FAILURES:
+                      out.append(f"- …외 {len(failures) - MAX_FAILURES}개 (Actions 로그에서 전체 보기)")
+              n = int(os.environ.get("SLOWEST") or 0)
+              if n and cases:
+                  out += ["", f"<details><summary>느린 테스트 Top {n}</summary>", "", "| 시간 | 테스트 |", "|---:|---|"]
+                  for t, module, cls, name in sorted(cases, reverse=True)[:n]:
+                      out.append(f"| {fmt(t)} | `{clean(module, 40)}` {clean(cls, 60)} > {clean(name, 80)} |")
+                  out += ["", "</details>"]
+          print("\n".join(out))
+          PY
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          body="$RUNNER_TEMP/summary.md"
+          [ -s "$body" ] || exit 0
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                 --jq '.[] | select(.body | startswith("<!-- harness-test-summary -->")) | .id' | head -n1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$body" > /dev/null
+          fi

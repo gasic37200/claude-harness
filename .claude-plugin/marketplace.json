@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-harness",
+  "description": "개인 하네스와 함께 쓰는 플러그인 모음. harness만 이 레포에 있고 나머지는 원본 레포를 가리킴",
+  "owner": { "name": "gasic37200", "url": "https://github.com/gasic37200" },
+  "plugins": [
+    {
+      "name": "harness",
+      "description": "지침 · 결정 기록 · PR 「AI 사용」 칸 · CI 결과 댓글 (setup · doctor 스킬)",
+      "source": "./",
+      "category": "productivity"
+    },
+    {
+      "name": "ponytail",
+      "description": "구현 규율(최소 코드 · 의존성 안 늘림). 하네스의 구현 층은 이것 하나만",
+      "source": { "source": "github", "repo": "DietrichGebert/ponytail" },
+      "category": "productivity"
+    },
+    {
+      "name": "mattpocock-skills",
+      "description": "결정 · 테스트 층 보조: grilling · domain-modeling · tdd",
+      "source": { "source": "github", "repo": "mattpocock/skills" },
+      "category": "engineering"
+    },
+    {
+      "name": "oh-my-claudecode",
+      "description": "조율 층(여러 세션 · 에이전트). 구현 규율 스킬은 포니테일과 겹치니 쓰지 않음",
+      "source": { "source": "github", "repo": "Yeachan-Heo/oh-my-claudecode" },
+      "category": "productivity"
+    }
+  ]
+}
